@@ -36,6 +36,7 @@ from https://rclone.org/downloads/
 | `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata |
 | `rclone_sync.ps1` | Syncs folder pairs listed in a text file, resolving `[VOLUME_LABEL]:` paths |
 | `generate_bookmarks.ps1` | Converts a browser bookmarks export with Bookmark2md |
+| `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account into one directory |
 
 Every script carries its own help, shown with `Get-Help`:
 
@@ -61,6 +62,24 @@ powershell -ExecutionPolicy Bypass -File rclone_sync.ps1 "list.txt" "exclusions.
 
 Source and destination directories must both already exist, otherwise the pair is skipped.
 This is deliberate: an unplugged drive is skipped instead of being recreated somewhere wrong.
+
+### github-repos-sync.ps1
+
+Needs GitHub CLI, authenticated once with `gh auth login`:
+
+```
+winget install --id GitHub.cli
+```
+
+Then, to bring every repository of the account into one directory:
+
+```
+powershell -ExecutionPolicy Bypass -File github-repos-sync.ps1 "D:\path\to\github"
+```
+
+Missing repositories are cloned, existing ones are fast-forwarded, and any repository with
+uncommitted changes is reported and left alone. Pass `-Account <user-or-org>` for someone
+else's repositories.
 
 ## License
 
