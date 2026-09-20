@@ -1,0 +1,8 @@
+# Third-party binaries: not redistributed here.
+# See README.md for where to download them.
+software-yt-dlp/
+software-rclone/
+
+# Generated output
+*.json
+generated/
