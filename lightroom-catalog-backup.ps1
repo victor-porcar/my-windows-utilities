@@ -14,8 +14,9 @@
     Previews (Previews.lrdata, Smart Previews.lrdata) are left out by default: Lightroom
     regenerates them and they are usually much bigger than the catalog itself.
 
-    The backup is refused while Lightroom has the catalog open (the .lrcat.lock file exists),
-    because copying a catalog in use may produce an inconsistent backup.
+    The backup is refused while Lightroom is running (a Lightroom.exe process exists) or the
+    catalog looks open (the .lrcat.lock file exists), because copying a catalog in use may
+    produce an inconsistent backup.
 
     Only the catalog is backed up, not the photos, which live in their own folders.
 
@@ -92,8 +93,17 @@ $CatalogPath = (Resolve-Path -LiteralPath $CatalogPath).Path
 $catalogDir  = Split-Path -Parent $CatalogPath
 $catalogName = [IO.Path]::GetFileNameWithoutExtension($CatalogPath)
 
+# Two independent checks: Lightroom running at all (whatever catalog it has open), and the
+# .lock file Lightroom keeps next to an open catalog. A .lock left by a crash is reported apart,
+# since it only needs to be deleted once Lightroom is known to be closed
+if (Get-Process -Name "Lightroom" -ErrorAction SilentlyContinue) {
+    Write-ErrorMsg "Lightroom is running: close it and try again"
+    exit 1
+}
+
 if (Test-Path -LiteralPath "$CatalogPath.lock") {
-    Write-ErrorMsg "Lightroom has the catalog open ($catalogName.lrcat.lock exists): close Lightroom and try again"
+    Write-ErrorMsg "$catalogName.lrcat.lock exists but Lightroom is not running: it was probably left by a crash."
+    Write-Host "   Open and close the catalog in Lightroom, or delete that file, and try again"
     exit 1
 }
 
