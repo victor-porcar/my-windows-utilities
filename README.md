@@ -36,7 +36,7 @@ from https://rclone.org/downloads/
 | `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata, keeping only the newest N files |
 | `rclone_sync.ps1` | Syncs folder pairs listed in a text file, resolving `[VOLUME_LABEL]:` paths |
 | `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account into one directory |
-| `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog (`.lrcat` plus `.lrcat-data`) with a timestamp |
+| `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog (`.lrcat` plus `.lrcat-data`) with a timestamp and keeps only the newest N backups |
 
 Every script carries its own help, shown with `Get-Help`:
 
@@ -94,11 +94,12 @@ else's repositories.
 ### lightroom-catalog-backup.ps1
 
 ```
-powershell -ExecutionPolicy Bypass -File lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA"
+powershell -ExecutionPolicy Bypass -File lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" 5
 ```
 
 The first argument is the catalog folder, which must hold a single `.lrcat` file (the `.lrcat`
-file itself is accepted too); the second one is the directory for the backup.
+file itself is accepted too); the second one is the directory for the backup; the third one is
+the maximum number of backups kept there.
 
 Creates `<catalog name>_<yyyyMMdd_HHmmss>.zip` with the catalog and its `.lrcat-data` folder,
 where Lightroom 11 and later keep the masks. The `.lrcat-wal` / `.lrcat-shm` files go in too when
@@ -107,6 +108,14 @@ present: the `-wal` file may hold changes that are not in the
 to keep them too. It refuses to run while Lightroom is running or the catalog has a `.lock` file
 next to it (Lightroom creates it while the catalog is open). Photos are not part
 of the catalog and are not backed up.
+
+Once the zip is made, old backups are deleted so that at most that number remain of each kind,
+counted separately:
+
+- the zips of this script for that catalog, counting the one just made;
+- the `yyyy-MM-dd HHmm` folders that Lightroom creates for its own backups when they are set to
+  go to the same directory. A folder only counts as one of them when it holds nothing but
+  `.zip` or `.lrcat` files; any other folder or file is left alone.
 
 ## License
 

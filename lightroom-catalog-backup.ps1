@@ -27,14 +27,22 @@
 .PARAMETER BackupDir
     Directory where the zip is saved. Created if it does not exist. E.g.: D:\AAA
 
+.PARAMETER BackupsToKeep
+    Maximum number of backups kept in BackupDir, applied separately to two kinds of backup:
+    - the zips made by this script for this catalog, counting the one just made
+    - the folders Lightroom creates there for its own backups, named "yyyy-MM-dd HHmm"
+    The oldest of each kind beyond that number are deleted. A folder only counts as a Lightroom
+    backup when it holds nothing but .zip or .lrcat files; anything else is never touched.
+
 .PARAMETER IncludePreviews
     Also back up the standard and smart previews folders.
 
 .EXAMPLE
-    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA"
+    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" 5
+    Leaves at most the 5 newest zips of this script and the 5 newest Lightroom backup folders.
 
 .EXAMPLE
-    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" -IncludePreviews
+    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" 5 -IncludePreviews
 #>
 [CmdletBinding()]
 param(
@@ -44,6 +52,10 @@ param(
     [Parameter(Mandatory = $true, Position = 1)]
     [string]$BackupDir,
 
+    [Parameter(Mandatory = $true, Position = 2)]
+    [ValidateRange(1, [int]::MaxValue)]
+    [int]$BackupsToKeep,
+
     [switch]$IncludePreviews
 )
 
@@ -51,6 +63,7 @@ $ErrorActionPreference = "Stop"
 
 function Write-Info($text)     { Write-Host "i  $text" -ForegroundColor Cyan }
 function Write-Success($text)  { Write-Host "OK $text" -ForegroundColor Green }
+function Write-Warn($text)     { Write-Host "!  $text" -ForegroundColor Yellow }
 function Write-ErrorMsg($text) { Write-Host "X  $text" -ForegroundColor Red }
 
 function Format-Size([long]$bytes) {
@@ -67,6 +80,35 @@ function Get-FilesOf([string]$path) {
 # Name inside the zip: path relative to the catalog folder, with forward slashes
 function Get-EntryName([string]$filePath, [string]$baseDir) {
     return $filePath.Substring($baseDir.Length).TrimStart('\') -replace '\\', '/'
+}
+
+# Zips made by this script for this catalog, except the one just made
+function Get-ScriptBackups([string]$dir, [string]$catalogName, [string]$justMade) {
+    $pattern = '^' + [regex]::Escape($catalogName) + '_\d{8}_\d{6}\.zip$'
+    return @(Get-ChildItem -LiteralPath $dir -File |
+        Where-Object { $_.Name -match $pattern -and $_.Name -ne $justMade })
+}
+
+# Folders named like the ones Lightroom creates for its own backups: "yyyy-MM-dd HHmm"
+function Get-LightroomBackupNamedFolders([string]$dir) {
+    return @(Get-ChildItem -LiteralPath $dir -Directory |
+        Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2} \d{4}$' })
+}
+
+# A Lightroom backup folder holds only the backed up catalog: .zip, or .lrcat in older versions
+function Test-LightroomBackupContent([string]$folder) {
+    $content = @(Get-ChildItem -LiteralPath $folder -Force)
+    $foreign = @($content | Where-Object { $_.PSIsContainer -or $_.Extension -notin @('.zip', '.lrcat') })
+    return $content.Count -gt 0 -and $foreign.Count -eq 0
+}
+
+# Deletes the oldest items so that only $keep remain; their names sort them from oldest to newest.
+# Empty lists reach here as $null, which a pipeline would treat as one item: hence the filter
+function Remove-Oldest([object[]]$items, [int]$keep, [string]$label) {
+    $items | Where-Object { $_ } | Sort-Object Name -Descending | Select-Object -Skip $keep | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force
+        Write-Host "   $label deleted: $($_.Name)"
+    }
 }
 
 # =========================================================
@@ -185,3 +227,25 @@ $elapsed = (Get-Date) - $start
 Write-Host ""
 Write-Success ("Backup done: {0} files, {1} -> {2} in {3:mm\:ss}" -f $fileCount, (Format-Size $totalBytes), (Format-Size $zipSize), $elapsed)
 Write-Host "   $zipFile"
+
+# =========================================================
+# OLD BACKUPS
+# Only once the new zip is in place. The script's zips and Lightroom's folders are counted
+# apart, each kind keeping at most $BackupsToKeep (for the zips, counting the one just made)
+# =========================================================
+try {
+    $lightroomFolders = @()
+    foreach ($folder in (Get-LightroomBackupNamedFolders $BackupDir)) {
+        if (Test-LightroomBackupContent $folder.FullName) { $lightroomFolders += $folder }
+        else { Write-Warn "Folder '$($folder.Name)' is named like a Lightroom backup but is empty or holds other things: left alone" }
+    }
+
+    Write-Host ""
+    Write-Info "Keeping at most $BackupsToKeep backups of each kind"
+    Remove-Oldest (Get-ScriptBackups $BackupDir $catalogName (Split-Path -Leaf $zipFile)) ($BackupsToKeep - 1) "Old backup"
+    Remove-Oldest $lightroomFolders $BackupsToKeep "Old Lightroom backup"
+}
+catch {
+    Write-ErrorMsg "The backup was made, but deleting old backups failed: $_"
+    exit 1
+}
