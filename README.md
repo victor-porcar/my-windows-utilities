@@ -1,7 +1,7 @@
 # my-windows-utilities
 
 A handful of Windows scripts for downloading YouTube media and metadata, syncing folders
-with rclone, and keeping local copies of GitHub repositories.
+with rclone, keeping local copies of GitHub repositories and backing up Lightroom catalogs.
 
 ## Setup
 
@@ -36,6 +36,7 @@ from https://rclone.org/downloads/
 | `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata |
 | `rclone_sync.ps1` | Syncs folder pairs listed in a text file, resolving `[VOLUME_LABEL]:` paths |
 | `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account into one directory |
+| `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog (`.lrcat` plus `.lrcat-data`) with a timestamp |
 
 Every script carries its own help, shown with `Get-Help`:
 
@@ -79,6 +80,17 @@ powershell -ExecutionPolicy Bypass -File github-repos-sync.ps1 "D:\path\to\githu
 Missing repositories are cloned, existing ones are fast-forwarded, and any repository with
 uncommitted changes is reported and left alone. Pass `-Account <user-or-org>` for someone
 else's repositories.
+
+### lightroom-catalog-backup.ps1
+
+```
+powershell -ExecutionPolicy Bypass -File lightroom-catalog-backup.ps1 "D:\path\to\MyCatalog.lrcat" "E:\backups\lightroom"
+```
+
+Creates `MyCatalog_<yyyyMMdd_HHmmss>.zip` with the catalog and its `.lrcat-data` folder, where
+Lightroom 11 and later keep the masks. Previews are left out because Lightroom regenerates them;
+add `-IncludePreviews` to keep them too. It refuses to run while Lightroom has the catalog open.
+Photos are not part of the catalog and are not backed up.
 
 ## License
 
