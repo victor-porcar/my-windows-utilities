@@ -56,9 +56,11 @@ powershell -ExecutionPolicy Bypass -File yt-video-downloader.ps1 "<video url>" "
 powershell -ExecutionPolicy Bypass -File yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" 5
 ```
 
-Saves `YOUTUBE_CHANNEL_<channel>_<yyyyMMdd_HHmmss>.json` and then deletes the oldest files of
-that channel so that only the given number remain (5 here), counting the new one. Files of other
-channels and any other file in the directory are never touched.
+Saves `YOUTUBE_CHANNEL_<channel>_<yyyyMMdd_HHmmss>.zip`, holding the `.json` of the same name,
+and then deletes the oldest files of that channel so that only the given number remain (5 here),
+counting the new one. The `.json` files saved by older versions of the script count and are
+deleted in the same way. Files of other channels and any other file in the directory are never
+touched.
 
 ### rclone_sync.ps1 and -DryRun
 

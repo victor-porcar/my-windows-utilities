@@ -3,8 +3,8 @@
     Downloads, as JSON, the most relevant information of all videos of a public YouTube channel using yt-dlp.
 
 .DESCRIPTION
-    The file is saved in OutputDir as YOUTUBE_CHANNEL_<channel handle>_<yyyyMMdd_HHmmss>.json
-    and contains the channel data plus, for every video (Videos, Shorts, Live tabs):
+    The data is saved in OutputDir as YOUTUBE_CHANNEL_<channel handle>_<yyyyMMdd_HHmmss>.zip, holding
+    a JSON file of the same name with the channel data plus, for every video (Videos, Shorts, Live tabs):
     id, url, title, description, upload date, duration, views, likes, comments, tags...
 
 .PARAMETER ChannelUrl
@@ -14,9 +14,10 @@
     Directory where the JSON file is saved. Created if it does not exist. E.g.: C:\temp
 
 .PARAMETER BackupsToKeep
-    How many JSON files of this channel are kept in OutputDir, counting the one just saved.
-    The oldest beyond that number are deleted. Only this channel's YOUTUBE_CHANNEL_*.json files
-    are considered, so other files and other channels in the same directory are never touched.
+    How many files of this channel are kept in OutputDir, counting the one just saved.
+    The oldest beyond that number are deleted. Only this channel's YOUTUBE_CHANNEL_*.zip files
+    (and the .json files saved by older versions of this script) are considered, so other files
+    and other channels in the same directory are never touched.
 
 .PARAMETER Fast
     Uses --flat-playlist: much faster, but without description, tags, likes or upload date.
@@ -86,11 +87,32 @@ function Format-YtDate([string]$d) {
     return $d
 }
 
-# Deletes the oldest JSON files of the channel so that only $keep remain, counting the one just
+# Saves text as the only entry of a new zip. It is written as .partial and renamed at the end,
+# so a failed run never leaves a zip that looks complete
+function Save-TextAsZip([string]$zipPath, [string]$entryName, [string]$text) {
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $partial = "$zipPath.partial"
+    try {
+        $zip = [IO.Compression.ZipFile]::Open($partial, [IO.Compression.ZipArchiveMode]::Create)
+        try {
+            $entry  = $zip.CreateEntry($entryName, [IO.Compression.CompressionLevel]::Optimal)
+            $writer = New-Object IO.StreamWriter($entry.Open(), (New-Object Text.UTF8Encoding($false)))
+            try { $writer.Write($text) } finally { $writer.Dispose() }
+        }
+        finally { $zip.Dispose() }
+        Move-Item -LiteralPath $partial -Destination $zipPath -Force
+    }
+    catch {
+        Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+        throw
+    }
+}
+
+# Deletes the oldest files of the channel so that only $keep remain, counting the one just
 # saved. The date in the name sorts them; files of other channels and the one just saved are never touched.
-# Older files named with the date only (_yyyyMMdd.json) are matched too, and sort before same-day ones
+# The .json files and the date-only names (_yyyyMMdd) of older versions of this script are matched too
 function Remove-OldChannelFiles([string]$dir, [string]$channelKey, [string]$justSaved, [int]$keep) {
-    $pattern = '^YOUTUBE_CHANNEL_' + [regex]::Escape($channelKey) + '_\d{8}(_\d{6})?\.json$'
+    $pattern = '^YOUTUBE_CHANNEL_' + [regex]::Escape($channelKey) + '_\d{8}(_\d{6})?\.(zip|json)$'
     Get-ChildItem -LiteralPath $dir -File |
         Where-Object { $_.Name -match $pattern -and $_.Name -ne $justSaved } |
         Sort-Object Name -Descending |
@@ -158,10 +180,11 @@ try {
         throw "yt-dlp returned no videos for $ChannelUrl (exit code $LASTEXITCODE)"
     }
 
-    # File name: YOUTUBE_CHANNEL_<handle without @ (or channel id)>_<yyyyMMdd_HHmmss>.json
+    # File name: YOUTUBE_CHANNEL_<handle without @ (or channel id)>_<yyyyMMdd_HHmmss>.zip, holding the .json
     $channelKey = if ($channel.handle) { $channel.handle.TrimStart("@") } else { $channel.id }
     $channelKey = $channelKey -replace '[\\/:*?"<>|]', '_'
-    $fileName = "YOUTUBE_CHANNEL_{0}_{1}.json" -f $channelKey, (Get-Date -Format "yyyyMMdd_HHmmss")
+    $baseName = "YOUTUBE_CHANNEL_{0}_{1}" -f $channelKey, (Get-Date -Format "yyyyMMdd_HHmmss")
+    $fileName = "$baseName.zip"
 
     $outFile = Join-Path $OutputDir $fileName
 
@@ -175,7 +198,7 @@ try {
     # ConvertTo-Json in Windows PowerShell escapes some characters (', <, >, &) as \u00XX; undo it for readability
     $json = [regex]::Replace($json, '\\u00(27|3c|3e|26)', { param($m) [char][Convert]::ToInt32($m.Groups[1].Value, 16) })
 
-    [IO.File]::WriteAllText($outFile, $json, (New-Object Text.UTF8Encoding($false)))
+    Save-TextAsZip $outFile "$baseName.json" $json
     Write-Host ""
     Write-Host "Saved $($videos.Count) videos to $outFile" -ForegroundColor Green
 
