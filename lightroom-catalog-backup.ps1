@@ -7,6 +7,10 @@
     later keep masks and other data outside the catalog, into
     <BackupDir>\<catalog name>_<yyyyMMdd_HHmmss>.zip
 
+    The .lrcat-wal and .lrcat-shm files are included when present: the catalog is a SQLite
+    database and, if Lightroom did not close cleanly, the -wal file holds changes that are not
+    in the .lrcat yet. Lightroom applies them when it opens the restored catalog.
+
     Previews (Previews.lrdata, Smart Previews.lrdata) are left out by default: Lightroom
     regenerates them and they are usually much bigger than the catalog itself.
 
@@ -16,19 +20,20 @@
     Only the catalog is backed up, not the photos, which live in their own folders.
 
 .PARAMETER CatalogPath
-    Path to the .lrcat file. E.g.: D:\path\to\Lightroom\MyCatalog.lrcat
+    Catalog folder, the one holding a single .lrcat file. E.g.: D:\LR_CATALOG\v_catalog
+    The path of the .lrcat file itself is accepted as well.
 
 .PARAMETER BackupDir
-    Directory where the zip is saved. Created if it does not exist. E.g.: E:\backups\lightroom
+    Directory where the zip is saved. Created if it does not exist. E.g.: D:\AAA
 
 .PARAMETER IncludePreviews
     Also back up the standard and smart previews folders.
 
 .EXAMPLE
-    .\lightroom-catalog-backup.ps1 "D:\path\to\Lightroom\MyCatalog.lrcat" "E:\backups\lightroom"
+    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA"
 
 .EXAMPLE
-    .\lightroom-catalog-backup.ps1 "D:\path\to\Lightroom\MyCatalog.lrcat" "E:\backups\lightroom" -IncludePreviews
+    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" -IncludePreviews
 #>
 [CmdletBinding()]
 param(
@@ -65,10 +70,21 @@ function Get-EntryName([string]$filePath, [string]$baseDir) {
 
 # =========================================================
 # CATALOG
+# A folder must hold exactly one .lrcat file; a .lrcat file is used as is
 # =========================================================
+if (Test-Path -LiteralPath $CatalogPath -PathType Container) {
+    $catalogs = @(Get-ChildItem -LiteralPath $CatalogPath -Filter *.lrcat -File)
+    if ($catalogs.Count -ne 1) {
+        Write-ErrorMsg "Expected exactly one .lrcat file in $CatalogPath, found $($catalogs.Count)"
+        $catalogs | ForEach-Object { Write-Host "   $($_.Name)" }
+        exit 1
+    }
+    $CatalogPath = $catalogs[0].FullName
+}
+
 if (-not (Test-Path -LiteralPath $CatalogPath -PathType Leaf) -or
     [IO.Path]::GetExtension($CatalogPath) -ne ".lrcat") {
-    Write-ErrorMsg "Not a Lightroom catalog (.lrcat file): $CatalogPath"
+    Write-ErrorMsg "Not a Lightroom catalog folder or .lrcat file: $CatalogPath"
     exit 1
 }
 
@@ -84,7 +100,9 @@ if (Test-Path -LiteralPath "$CatalogPath.lock") {
 # =========================================================
 # WHAT GOES INTO THE ZIP
 # =========================================================
-$candidates = @($CatalogPath, "$CatalogPath-data")
+# The catalog is a SQLite database: its -wal file may hold changes not yet written into the
+# .lrcat (left behind when Lightroom does not close cleanly), so it must travel with it
+$candidates = @($CatalogPath, "$CatalogPath-wal", "$CatalogPath-shm", "$CatalogPath-data")
 if ($IncludePreviews) {
     $candidates += Join-Path $catalogDir "$catalogName Previews.lrdata"
     $candidates += Join-Path $catalogDir "$catalogName Smart Previews.lrdata"

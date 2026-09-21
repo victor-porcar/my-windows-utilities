@@ -84,13 +84,18 @@ else's repositories.
 ### lightroom-catalog-backup.ps1
 
 ```
-powershell -ExecutionPolicy Bypass -File lightroom-catalog-backup.ps1 "D:\path\to\MyCatalog.lrcat" "E:\backups\lightroom"
+powershell -ExecutionPolicy Bypass -File lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA"
 ```
 
-Creates `MyCatalog_<yyyyMMdd_HHmmss>.zip` with the catalog and its `.lrcat-data` folder, where
-Lightroom 11 and later keep the masks. Previews are left out because Lightroom regenerates them;
-add `-IncludePreviews` to keep them too. It refuses to run while Lightroom has the catalog open.
-Photos are not part of the catalog and are not backed up.
+The first argument is the catalog folder, which must hold a single `.lrcat` file (the `.lrcat`
+file itself is accepted too); the second one is the directory for the backup.
+
+Creates `<catalog name>_<yyyyMMdd_HHmmss>.zip` with the catalog and its `.lrcat-data` folder,
+where Lightroom 11 and later keep the masks. The `.lrcat-wal` / `.lrcat-shm` files go in too when
+present: if Lightroom did not close cleanly, the `-wal` file holds changes that are not in the
+`.lrcat` yet. Previews are left out because Lightroom regenerates them; add `-IncludePreviews`
+to keep them too. It refuses to run while Lightroom has the catalog open. Photos are not part
+of the catalog and are not backed up.
 
 ## License
 
