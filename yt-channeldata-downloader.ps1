@@ -3,7 +3,7 @@
     Downloads, as JSON, the most relevant information of all videos of a public YouTube channel using yt-dlp.
 
 .DESCRIPTION
-    The file is saved in OutputDir as YOUTUBE_CHANNEL_<channel handle>_<yyyyMMdd>.json
+    The file is saved in OutputDir as YOUTUBE_CHANNEL_<channel handle>_<yyyyMMdd_HHmmss>.json
     and contains the channel data plus, for every video (Videos, Shorts, Live tabs):
     id, url, title, description, upload date, duration, views, likes, comments, tags...
 
@@ -87,9 +87,10 @@ function Format-YtDate([string]$d) {
 }
 
 # Deletes the oldest JSON files of the channel so that only $keep remain, counting the one just
-# saved. The date in the name sorts them; files of other channels and the one just saved are never touched
+# saved. The date in the name sorts them; files of other channels and the one just saved are never touched.
+# Older files named with the date only (_yyyyMMdd.json) are matched too, and sort before same-day ones
 function Remove-OldChannelFiles([string]$dir, [string]$channelKey, [string]$justSaved, [int]$keep) {
-    $pattern = '^YOUTUBE_CHANNEL_' + [regex]::Escape($channelKey) + '_\d{8}\.json$'
+    $pattern = '^YOUTUBE_CHANNEL_' + [regex]::Escape($channelKey) + '_\d{8}(_\d{6})?\.json$'
     Get-ChildItem -LiteralPath $dir -File |
         Where-Object { $_.Name -match $pattern -and $_.Name -ne $justSaved } |
         Sort-Object Name -Descending |
@@ -157,10 +158,10 @@ try {
         throw "yt-dlp returned no videos for $ChannelUrl (exit code $LASTEXITCODE)"
     }
 
-    # File name: YOUTUBE_CHANNEL_<handle without @ (or channel id)>_<yyyyMMdd>.json
+    # File name: YOUTUBE_CHANNEL_<handle without @ (or channel id)>_<yyyyMMdd_HHmmss>.json
     $channelKey = if ($channel.handle) { $channel.handle.TrimStart("@") } else { $channel.id }
     $channelKey = $channelKey -replace '[\\/:*?"<>|]', '_'
-    $fileName = "YOUTUBE_CHANNEL_{0}_{1}.json" -f $channelKey, (Get-Date -Format "yyyyMMdd")
+    $fileName = "YOUTUBE_CHANNEL_{0}_{1}.json" -f $channelKey, (Get-Date -Format "yyyyMMdd_HHmmss")
 
     $outFile = Join-Path $OutputDir $fileName
 
