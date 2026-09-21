@@ -13,6 +13,11 @@
 .PARAMETER OutputDir
     Directory where the JSON file is saved. Created if it does not exist. E.g.: C:\temp
 
+.PARAMETER BackupsToKeep
+    How many JSON files of this channel are kept in OutputDir, counting the one just saved.
+    The oldest beyond that number are deleted. Only this channel's YOUTUBE_CHANNEL_*.json files
+    are considered, so other files and other channels in the same directory are never touched.
+
 .PARAMETER Fast
     Uses --flat-playlist: much faster, but without description, tags, likes or upload date.
 
@@ -20,10 +25,11 @@
     Path to yt-dlp.exe. Defaults to %GITHUB-VICTOR-PORCAR%\my-windows-utilities\software-yt-dlp\yt-dlp.exe
 
 .EXAMPLE
-    .\yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp"
+    .\yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" 5
+    Keeps the 5 newest files of the channel, counting the new one.
 
 .EXAMPLE
-    .\yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" -Verbose
+    .\yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" 5 -Verbose
     Also shows the whole yt-dlp log.
 #>
 [CmdletBinding()]
@@ -33,6 +39,10 @@ param(
 
     [Parameter(Mandatory = $true, Position = 1)]
     [string]$OutputDir,
+
+    [Parameter(Mandatory = $true, Position = 2)]
+    [ValidateRange(1, [int]::MaxValue)]
+    [int]$BackupsToKeep,
 
     [switch]$Fast,
 
@@ -74,6 +84,20 @@ function Format-YtDate([string]$d) {
     # yt-dlp dates come as yyyyMMdd
     if ($d -match '^(\d{4})(\d{2})(\d{2})$') { return "$($Matches[1])-$($Matches[2])-$($Matches[3])" }
     return $d
+}
+
+# Deletes the oldest JSON files of the channel so that only $keep remain, counting the one just
+# saved. The date in the name sorts them; files of other channels and the one just saved are never touched
+function Remove-OldChannelFiles([string]$dir, [string]$channelKey, [string]$justSaved, [int]$keep) {
+    $pattern = '^YOUTUBE_CHANNEL_' + [regex]::Escape($channelKey) + '_\d{8}\.json$'
+    Get-ChildItem -LiteralPath $dir -File |
+        Where-Object { $_.Name -match $pattern -and $_.Name -ne $justSaved } |
+        Sort-Object Name -Descending |
+        Select-Object -Skip ($keep - 1) |
+        ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName
+            Write-Host "Old file deleted: $($_.Name)"
+        }
 }
 
 try {
@@ -153,6 +177,8 @@ try {
     [IO.File]::WriteAllText($outFile, $json, (New-Object Text.UTF8Encoding($false)))
     Write-Host ""
     Write-Host "Saved $($videos.Count) videos to $outFile" -ForegroundColor Green
+
+    Remove-OldChannelFiles $OutputDir $channelKey $fileName $BackupsToKeep
 }
 catch {
     Write-Error $_

@@ -33,7 +33,7 @@ from https://rclone.org/downloads/
 |---|---|
 | `yt-video-downloader.ps1` | Downloads a video in the best available quality |
 | `yt-sound-downloader.ps1` | Downloads only the audio track (mp3 by default, `best` keeps the original stream) |
-| `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata |
+| `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata, keeping only the newest N files |
 | `rclone_sync.ps1` | Syncs folder pairs listed in a text file, resolving `[VOLUME_LABEL]:` paths |
 | `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account into one directory |
 | `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog (`.lrcat` plus `.lrcat-data`) with a timestamp |
@@ -49,6 +49,17 @@ And is run like this:
 ```
 powershell -ExecutionPolicy Bypass -File yt-video-downloader.ps1 "<video url>" "C:\temp"
 ```
+
+### yt-channeldata-downloader.ps1
+
+```
+powershell -ExecutionPolicy Bypass -File yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" 5
+```
+
+Saves `YOUTUBE_CHANNEL_<channel>_<yyyyMMdd>.json` and then deletes the oldest files of that
+channel so that only the given number remain (5 here), counting the new one. Files of other
+channels and any other file in the directory are never touched. Running it twice on the same
+day overwrites that day's file.
 
 ### rclone_sync.ps1 and -DryRun
 
