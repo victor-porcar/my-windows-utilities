@@ -1,7 +1,7 @@
 # my-windows-utilities
 
 A handful of Windows scripts for downloading YouTube media and metadata, syncing folders
-with rclone, and generating bookmark files.
+with rclone, and keeping local copies of GitHub repositories.
 
 ## Setup
 
@@ -35,7 +35,6 @@ from https://rclone.org/downloads/
 | `yt-sound-downloader.ps1` | Downloads only the audio track (mp3 by default, `best` keeps the original stream) |
 | `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata |
 | `rclone_sync.ps1` | Syncs folder pairs listed in a text file, resolving `[VOLUME_LABEL]:` paths |
-| `generate_bookmarks.ps1` | Converts a browser bookmarks export with Bookmark2md |
 | `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account into one directory |
 
 Every script carries its own help, shown with `Get-Help`:
