@@ -36,7 +36,7 @@ $ErrorActionPreference = "Stop"
 # The braces are required: without them PowerShell reads the hyphens as operators
 $repoRoot = ${env:GITHUB-VICTOR-PORCAR}
 if (-not $repoRoot) {
-    Write-Error "La variable de entorno GITHUB-VICTOR-PORCAR no esta definida"
+    Write-Error "The GITHUB-VICTOR-PORCAR environment variable is not defined"
     exit 1
 }
 
@@ -46,7 +46,7 @@ $FfmpegPath  = Join-Path $SoftwareDir "ffmpeg.exe"
 
 foreach ($exe in @($YtDlpPath, $FfmpegPath)) {
     if (-not (Test-Path $exe)) {
-        Write-Error "No se encuentra $(Split-Path -Leaf $exe) en: $exe"
+        Write-Error "$(Split-Path -Leaf $exe) not found at: $exe"
         exit 1
     }
 }
@@ -74,12 +74,12 @@ try {
     if ($VerbosePreference -eq "Continue") { $ytArgs += "--verbose" }
     $ytArgs += $VideoUrl
 
-    Write-Host "Descargando $VideoUrl"
-    Write-Host "Destino: $OutputDir"
+    Write-Host "Downloading $VideoUrl"
+    Write-Host "Destination: $OutputDir"
 
     & $YtDlpPath @ytArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "yt-dlp termino con codigo $LASTEXITCODE"
+        throw "yt-dlp finished with exit code $LASTEXITCODE"
     }
 
     # --print after_move:filepath would need a second pass; the newest file is the one just merged
@@ -89,7 +89,7 @@ try {
 
     if ($downloaded) {
         $sizeMb = [math]::Round($downloaded.Length / 1MB, 1)
-        Write-Host "Guardado: $($downloaded.FullName) ($sizeMb MB)"
+        Write-Host "Saved: $($downloaded.FullName) ($sizeMb MB)"
     }
 }
 catch {
