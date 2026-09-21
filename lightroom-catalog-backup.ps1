@@ -8,8 +8,8 @@
     <BackupDir>\<catalog name>_<yyyyMMdd_HHmmss>.zip
 
     The .lrcat-wal and .lrcat-shm files are included when present: the catalog is a SQLite
-    database and, if Lightroom did not close cleanly, the -wal file holds changes that are not
-    in the .lrcat yet. Lightroom applies them when it opens the restored catalog.
+    database and the -wal file, which can remain after Lightroom is closed, may hold changes not
+    yet in the .lrcat. Lightroom applies them when it opens the restored catalog.
 
     Previews (Previews.lrdata, Smart Previews.lrdata) are left out by default: Lightroom
     regenerates them and they are usually much bigger than the catalog itself.
@@ -111,7 +111,7 @@ if (Test-Path -LiteralPath "$CatalogPath.lock") {
 # WHAT GOES INTO THE ZIP
 # =========================================================
 # The catalog is a SQLite database: its -wal file may hold changes not yet written into the
-# .lrcat (left behind when Lightroom does not close cleanly), so it must travel with it
+# .lrcat (it can remain even after Lightroom is closed), so it must travel with it
 $candidates = @($CatalogPath, "$CatalogPath-wal", "$CatalogPath-shm", "$CatalogPath-data")
 if ($IncludePreviews) {
     $candidates += Join-Path $catalogDir "$catalogName Previews.lrdata"

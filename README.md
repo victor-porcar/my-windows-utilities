@@ -92,7 +92,7 @@ file itself is accepted too); the second one is the directory for the backup.
 
 Creates `<catalog name>_<yyyyMMdd_HHmmss>.zip` with the catalog and its `.lrcat-data` folder,
 where Lightroom 11 and later keep the masks. The `.lrcat-wal` / `.lrcat-shm` files go in too when
-present: if Lightroom did not close cleanly, the `-wal` file holds changes that are not in the
+present: the `-wal` file may hold changes that are not in the
 `.lrcat` yet. Previews are left out because Lightroom regenerates them; add `-IncludePreviews`
 to keep them too. It refuses to run while Lightroom is running or the catalog has a `.lock` file
 next to it (Lightroom creates it while the catalog is open). Photos are not part
