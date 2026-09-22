@@ -7,7 +7,7 @@
     "<title> [<id>].<ext>".
 
     Both yt-dlp.exe and ffmpeg.exe are taken from:
-    %GITHUB-VICTOR-PORCAR%\my-windows-utilities\software-yt-dlp
+    %GITHUB_VICTOR_PORCAR%\my-windows-utilities\software-yt-dlp
 
 .PARAMETER VideoUrl
     URL of the video. E.g.: https://www.youtube.com/watch?v=jNQXAC9IVRw
@@ -42,10 +42,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# The braces are required: without them PowerShell reads the hyphens as operators
-$repoRoot = ${env:GITHUB-VICTOR-PORCAR}
+$repoRoot = $env:GITHUB_VICTOR_PORCAR
 if (-not $repoRoot) {
-    Write-Error "The GITHUB-VICTOR-PORCAR environment variable is not defined"
+    Write-Error "The GITHUB_VICTOR_PORCAR environment variable is not defined"
     exit 1
 }
 

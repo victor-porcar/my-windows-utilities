@@ -23,7 +23,7 @@
     Uses --flat-playlist: much faster, but without description, tags, likes or upload date.
 
 .PARAMETER YtDlpPath
-    Path to yt-dlp.exe. Defaults to %GITHUB-VICTOR-PORCAR%\my-windows-utilities\software-yt-dlp\yt-dlp.exe
+    Path to yt-dlp.exe. Defaults to %GITHUB_VICTOR_PORCAR%\my-windows-utilities\software-yt-dlp\yt-dlp.exe
 
 .EXAMPLE
     .\yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" 5
@@ -63,10 +63,9 @@ Write-Host "==============================================================="
 Write-Host ""
 
 if (-not $YtDlpPath) {
-    # The braces are required: without them PowerShell reads the hyphens as operators
-    $utilsRoot = ${env:GITHUB-VICTOR-PORCAR}
+    $utilsRoot = $env:GITHUB_VICTOR_PORCAR
     if (-not $utilsRoot) {
-        Write-Error "The GITHUB-VICTOR-PORCAR environment variable is not defined"
+        Write-Error "The GITHUB_VICTOR_PORCAR environment variable is not defined"
         exit 1
     }
     $YtDlpPath = Join-Path $utilsRoot "my-windows-utilities\software-yt-dlp\yt-dlp.exe"

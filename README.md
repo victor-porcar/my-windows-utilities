@@ -8,7 +8,7 @@ with rclone, keeping local copies of GitHub repositories and backing up Lightroo
 Create this environment variable, which every script uses to locate its resources:
 
 ```
-setx GITHUB-VICTOR-PORCAR "D:\path\to\github-victor-porcar"
+setx GITHUB_VICTOR_PORCAR "D:\path\to\github-victor-porcar"
 ```
 
 Then download the third-party executables below. They are not included in this repository.

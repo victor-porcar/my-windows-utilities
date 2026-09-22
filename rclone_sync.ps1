@@ -18,13 +18,12 @@ param(
 # =========================================================
 # RCLONE HOME
 # rclone.exe and rclone-empty.conf live in software-rclone,
-# located through GITHUB-VICTOR-PORCAR so this script runs from anywhere.
-# The braces are required: without them PowerShell reads the hyphens as operators
+# located through GITHUB_VICTOR_PORCAR so this script runs from anywhere.
 # =========================================================
-$repoRoot = ${env:GITHUB-VICTOR-PORCAR}
+$repoRoot = $env:GITHUB_VICTOR_PORCAR
 
 if (-not $repoRoot) {
-    Write-Host "X GITHUB-VICTOR-PORCAR ENVIRONMENT VARIABLE IS NOT DEFINED" -ForegroundColor Red
+    Write-Host "X GITHUB_VICTOR_PORCAR ENVIRONMENT VARIABLE IS NOT DEFINED" -ForegroundColor Red
     exit 1
 }
 
