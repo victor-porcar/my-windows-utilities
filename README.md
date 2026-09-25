@@ -3,15 +3,47 @@
 A handful of Windows scripts for downloading YouTube media and metadata, syncing folders
 with rclone, keeping local copies of GitHub repositories and backing up Lightroom catalogs.
 
+## Scripts
+
+| Script | What it does | Details |
+|---|---|---|
+| `yt-video-downloader.ps1` | Downloads a video in the best available quality | [docs](docs/yt-video-downloader.md) |
+| `yt-sound-downloader.ps1` | Downloads only the audio track, mp3 by default | [docs](docs/yt-sound-downloader.md) |
+| `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata | [docs](docs/yt-channeldata-downloader.md) |
+| `rclone_sync.ps1` | Mirrors folder pairs listed in a text file | [docs](docs/rclone_sync.md) |
+| `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account | [docs](docs/github-repos-sync.md) |
+| `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog, keeping the newest N | [docs](docs/lightroom-catalog-backup.md) |
+
+Every script also carries its own parameter reference:
+
+```
+powershell -Command "Get-Help .\yt-video-downloader.ps1 -Full"
+```
+
+And is run like this:
+
+```
+powershell -ExecutionPolicy Bypass -File yt-video-downloader.ps1 "<video url>" "C:\temp"
+```
+
 ## Setup
 
-Create this environment variable, which every script uses to locate its resources:
+All these scripts assume an environment variable named `GITHUB_VICTOR_PORCAR`, pointing to the
+folder that holds this repository. They use it to find the executables they rely on, so that any
+of them can be run, or called from a shortcut or a scheduled task, from any directory.
+
+If it is not defined yet, create it once with `setx`, and give it the path of the folder
+`my-windows-utilities` lives in:
 
 ```
 setx GITHUB_VICTOR_PORCAR "D:\path\to\github-victor-porcar"
 ```
 
-Then download the third-party executables below. They are not included in this repository.
+A script started without it stops straight away with a message saying so, rather than guessing a
+location. Note that `setx` only affects consoles opened afterwards, so close the current one.
+
+The third-party executables below are not included in this repository and have to be downloaded
+into the folders named here.
 
 ### software-yt-dlp
 
@@ -27,101 +59,17 @@ Create `my-windows-utilities\software-yt-dlp` and place in it:
 Create `my-windows-utilities\software-rclone` and place `rclone.exe` in it,
 from https://rclone.org/downloads/
 
-## Scripts
+### GitHub CLI
 
-| Script | What it does |
-|---|---|
-| `yt-video-downloader.ps1` | Downloads a video in the best available quality |
-| `yt-sound-downloader.ps1` | Downloads only the audio track (mp3 by default, `best` keeps the original stream) |
-| `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata, keeping only the newest N files |
-| `rclone_sync.ps1` | Syncs folder pairs listed in a text file, resolving `[VOLUME_LABEL]:` paths |
-| `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account into one directory |
-| `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog (`.lrcat` plus `.lrcat-data`) with a timestamp and keeps only the newest N backups |
-
-Every script carries its own help, shown with `Get-Help`:
-
-```
-powershell -Command "Get-Help .\yt-video-downloader.ps1 -Full"
-```
-
-And is run like this:
-
-```
-powershell -ExecutionPolicy Bypass -File yt-video-downloader.ps1 "<video url>" "C:\temp"
-```
-
-### yt-channeldata-downloader.ps1
-
-```
-powershell -ExecutionPolicy Bypass -File yt-channeldata-downloader.ps1 "https://www.youtube.com/@YouTube" "C:\temp" 5
-```
-
-Saves `YOUTUBE_CHANNEL_<channel>_<yyyyMMdd_HHmmss>.zip`, holding the `.json` of the same name,
-and then deletes the oldest files of that channel so that only the given number remain (5 here),
-counting the new one. The `.json` files saved by older versions of the script count and are
-deleted in the same way. Files of other channels and any other file in the directory are never
-touched.
-
-### rclone_sync.ps1 and -DryRun
-
-`rclone sync` mirrors: whatever is in the destination but not in the source **is deleted**.
-Add `-DryRun` to list every copy and delete it would make without touching anything, which
-also skips the confirmation prompt and leaves no `control_sync.txt` behind:
-
-```
-powershell -ExecutionPolicy Bypass -File rclone_sync.ps1 "list.txt" "exclusions.txt" "args.txt" "MY BACKUP" -DryRun
-```
-
-Source and destination directories must both already exist, otherwise the pair is skipped.
-This is deliberate: an unplugged drive is skipped instead of being recreated somewhere wrong.
-
-### github-repos-sync.ps1
-
-Needs GitHub CLI, authenticated once with `gh auth login`:
+Only needed by `github-repos-sync.ps1`:
 
 ```
 winget install --id GitHub.cli
 ```
 
-Then, to bring every repository of the account into one directory:
-
-```
-powershell -ExecutionPolicy Bypass -File github-repos-sync.ps1 "D:\path\to\github"
-```
-
-Missing repositories are cloned, existing ones are fast-forwarded, and any repository with
-uncommitted changes is reported and left alone. Pass `-Account <user-or-org>` for someone
-else's repositories.
-
-### lightroom-catalog-backup.ps1
-
-```
-powershell -ExecutionPolicy Bypass -File lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" 5
-```
-
-The first argument is the catalog folder, which must hold a single `.lrcat` file (the `.lrcat`
-file itself is accepted too); the second one is the directory for the backup; the third one is
-the maximum number of backups kept there.
-
-Creates `<catalog name>_<yyyyMMdd_HHmmss>.zip` with the catalog and its `.lrcat-data` folder,
-where Lightroom 11 and later keep the masks. The `.lrcat-wal` / `.lrcat-shm` files go in too when
-present: the `-wal` file may hold changes that are not in the
-`.lrcat` yet. Previews are left out because Lightroom regenerates them; add `-IncludePreviews`
-to keep them too. It refuses to run while Lightroom is running or the catalog has a `.lock` file
-next to it (Lightroom creates it while the catalog is open). Photos are not part
-of the catalog and are not backed up.
-
-Once the zip is made, old backups are deleted so that at most that number remain of each kind,
-counted separately:
-
-- the zips of this script for that catalog, counting the one just made;
-- the `yyyy-MM-dd HHmm` folders that Lightroom creates for its own backups when they are set to
-  go to the same directory. A folder only counts as one of them when it holds nothing but
-  `.zip` or `.lrcat` files; any other folder or file is left alone.
-
 ## License
 
 The scripts in this repository are MIT licensed; see `LICENSE`.
 
-yt-dlp, ffmpeg and rclone are separate projects under their own licenses and are not
+yt-dlp, ffmpeg, rclone and GitHub CLI are separate projects under their own licenses and are not
 redistributed here.
