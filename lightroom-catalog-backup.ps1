@@ -21,11 +21,11 @@
     Only the catalog is backed up, not the photos, which live in their own folders.
 
 .PARAMETER CatalogPath
-    Catalog folder, the one holding a single .lrcat file. E.g.: D:\LR_CATALOG\v_catalog
+    Catalog folder, the one holding a single .lrcat file. E.g.: D:\path\to\catalog-folder
     The path of the .lrcat file itself is accepted as well.
 
 .PARAMETER BackupDir
-    Directory where the zip is saved. Created if it does not exist. E.g.: D:\AAA
+    Directory where the zip is saved. Created if it does not exist. E.g.: D:\path\to\backups
 
 .PARAMETER BackupsToKeep
     Maximum number of backups kept in BackupDir, applied separately to two kinds of backup:
@@ -38,11 +38,11 @@
     Also back up the standard and smart previews folders.
 
 .EXAMPLE
-    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" 5
+    .\lightroom-catalog-backup.ps1 "D:\path\to\catalog-folder" "D:\path\to\backups" 5
     Leaves at most the 5 newest zips of this script and the 5 newest Lightroom backup folders.
 
 .EXAMPLE
-    .\lightroom-catalog-backup.ps1 "D:\LR_CATALOG\v_catalog" "D:\AAA" 5 -IncludePreviews
+    .\lightroom-catalog-backup.ps1 "D:\path\to\catalog-folder" "D:\path\to\backups" 5 -IncludePreviews
 #>
 [CmdletBinding()]
 param(
