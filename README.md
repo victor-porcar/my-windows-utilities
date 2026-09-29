@@ -1,7 +1,8 @@
 # my-windows-utilities
 
 A handful of Windows scripts for downloading YouTube media and metadata, syncing folders
-with rclone, keeping local copies of GitHub repositories and backing up Lightroom catalogs.
+with rclone, keeping local copies of GitHub repositories, backing up Lightroom catalogs and
+wiping the traces Notepad++ leaves behind.
 
 ## Scripts
 
@@ -13,6 +14,7 @@ with rclone, keeping local copies of GitHub repositories and backing up Lightroo
 | `rclone_sync.ps1` | Mirrors folder pairs listed in a text file | [docs](docs/rclone_sync.md) |
 | `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account | [docs](docs/github-repos-sync.md) |
 | `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog, keeping the newest N | [docs](docs/lightroom-catalog-backup.md) |
+| `notepadpp-clean-traces.ps1` | Wipes what Notepad++ remembers about the files it opened | [docs](docs/notepadpp-clean-traces.md) |
 
 Every script also carries its own parameter reference:
 
