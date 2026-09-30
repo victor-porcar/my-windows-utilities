@@ -80,11 +80,22 @@ whole feature off in **Settings > Personalization > Start > Show recently opened
 
 In this order:
 
-1. `-ConfigDir`, when it is given.
+1. `-ConfigDir`, when it is given, and then that folder and no other.
 2. The installation folder, if Notepad++ runs in **local mode** (a `doLocalConf.xml` sits next to
    `notepad++.exe`), which moves the whole configuration there.
 3. The folder of the **cloud** setting (*Settings > Preferences > Cloud*), when one is set.
 4. `%APPDATA%\Notepad++`.
+
+The installed `notepad++.exe` is looked up in the registry and in the usual installation folders,
+and only then in a running process. That order matters when a portable copy is open: taking the
+running process first would clean **that** one and leave the installed copy, the one whose traces
+are worth wiping, untouched.
+
+**A Notepad++ from the Microsoft Store is cleaned too**, on top of the one above, and so is any
+other packaged copy. They run inside an MSIX container, so what they write to `%APPDATA%` is
+redirected by Windows into
+`%LOCALAPPDATA%\Packages\<package>\LocalCache\Roaming\Notepad++`, where nothing else would look
+for it. Every folder found is listed before anything is wiped.
 
 The snapshots folder is read from `config.xml` as well, in case a custom backup directory is
 configured in *Settings > Preferences > Backup*.

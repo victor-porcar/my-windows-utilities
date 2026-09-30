@@ -35,6 +35,11 @@
     notepad++.exe), the folder given by the cloud setting when there is one, and otherwise
     %APPDATA%\Notepad++.
 
+    A Notepad++ installed from the Microsoft Store is cleaned as well, on top of that one, and
+    so is any other packaged copy: they run in an MSIX container, so what they write to
+    %APPDATA% is redirected by Windows into the LocalCache of their package, out of sight of the
+    lookup above. Passing -ConfigDir means that folder and no other.
+
 .PARAMETER Overwrite
     Before deleting each file, overwrite its bytes with random data, so that the content cannot
     be recovered by reading the free space of the disk.
@@ -131,11 +136,11 @@ $script:WipedBytes = 0
 # ---------------------------------------------------------------------------------------------
 
 function Get-InstallDir {
-    # The path of notepad++.exe, taken from the running process, from the uninstall entry of the
-    # registry or from the usual installation folders
-    $process = Get-Process -Name "notepad++" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($process -and $process.Path) { return (Split-Path $process.Path -Parent) }
-
+    # The path of notepad++.exe of the copy INSTALLED in Windows: the uninstall entry of the
+    # registry first, then the usual installation folders, and only as a last resort a running
+    # process. A running process cannot come first: a portable copy kept in an encrypted volume
+    # would then be taken for the installed one, and the traces of the installed one, which are
+    # the ones worth wiping, would be left untouched
     $registryKeys = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++",
         "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++"
@@ -148,6 +153,9 @@ function Get-InstallDir {
     foreach ($dir in @("$env:ProgramFiles\Notepad++", "${env:ProgramFiles(x86)}\Notepad++")) {
         if (Test-Path (Join-Path $dir "notepad++.exe")) { return $dir }
     }
+
+    $process = Get-Process -Name "notepad++" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($process -and $process.Path) { return (Split-Path $process.Path -Parent) }
 
     return $null
 }
@@ -168,6 +176,25 @@ function Get-CloudDir($appDataDir) {
     }
 
     return $null
+}
+
+function Get-PackagedConfigDirs {
+    # A Notepad++ installed from the Microsoft Store runs packaged (MSIX), and Windows redirects
+    # what it writes to %APPDATA% into the LocalCache of its package, so its traces are the same
+    # ones in a folder of their own that the usual lookup never sees
+    $packages = Join-Path $env:LOCALAPPDATA "Packages"
+    if (-not (Test-Path -LiteralPath $packages)) { return @() }
+
+    $dirs = @()
+    foreach ($package in @(Get-ChildItem -LiteralPath $packages -Directory -Force -ErrorAction SilentlyContinue)) {
+        foreach ($relative in @("LocalCache\Roaming\Notepad++", "LocalCache\Local\Notepad++", "LocalState\Notepad++")) {
+            $candidate = Join-Path $package.FullName $relative
+            # config.xml is what tells a real configuration folder from an empty leftover
+            if (Test-Path -LiteralPath (Join-Path $candidate "config.xml")) { $dirs += $candidate }
+        }
+    }
+
+    return $dirs
 }
 
 function Resolve-ConfigDir {
@@ -549,21 +576,39 @@ function Stop-NotepadPlusPlus {
 # ---------------------------------------------------------------------------------------------
 
 try {
-    $configDir = Resolve-ConfigDir
-    Write-Info "Configuration folder: $configDir"
+    $configDirs = @(Resolve-ConfigDir)
+
+    # An explicit -ConfigDir means that folder and no other
+    if (-not $ConfigDir) {
+        foreach ($packaged in @(Get-PackagedConfigDirs)) {
+            if ($configDirs -notcontains $packaged) { $configDirs += $packaged }
+        }
+    }
+
+    foreach ($dir in $configDirs) { Write-Info "Configuration folder: $dir" }
 
     if (-not (Stop-NotepadPlusPlus)) { exit 1 }
 
     # The paths are read first: the files naming them are wiped right after
-    $tracedPaths = if ($IncludeWindowsRecent) { Get-TracedPaths $configDir } else { $null }
+    $tracedPaths = New-Object System.Collections.Generic.HashSet[string] ([StringComparer]::OrdinalIgnoreCase)
+    if ($IncludeWindowsRecent) {
+        foreach ($dir in $configDirs) {
+            foreach ($path in (Get-TracedPaths $dir)) { [void]$tracedPaths.Add($path) }
+        }
+    }
 
-    Clear-Snapshots $configDir
-    Clear-SessionFiles $configDir
-    Clear-ConfigHistory $configDir
-    Clear-LogFile $configDir
-    if ($IncludeWindowsRecent) { Clear-WindowsRecent $tracedPaths }
-    if ($DisableSnapshots) { Disable-Snapshots $configDir }
-    elseif (-not $KeepSnapshots) { Show-SnapshotWarning $configDir }
+    foreach ($dir in $configDirs) {
+        if ($configDirs.Count -gt 1) { Write-Host ""; Write-Info "--- $dir ---" }
+
+        Clear-Snapshots $dir
+        Clear-SessionFiles $dir
+        Clear-ConfigHistory $dir
+        Clear-LogFile $dir
+        if ($DisableSnapshots) { Disable-Snapshots $dir }
+        elseif (-not $KeepSnapshots) { Show-SnapshotWarning $dir }
+    }
+
+    if ($IncludeWindowsRecent) { Write-Host ""; Clear-WindowsRecent $tracedPaths }
 
     Write-Host ""
     if ($WhatIfPreference) {
