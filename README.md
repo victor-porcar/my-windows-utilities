@@ -1,8 +1,8 @@
 # my-windows-utilities
 
-A handful of Windows scripts for downloading YouTube media and metadata, syncing folders
-with rclone, keeping local copies of GitHub repositories, backing up Lightroom catalogs and
-wiping the traces Notepad++ leaves behind.
+A handful of Windows scripts for downloading YouTube media and metadata, upscaling videos to 8K,
+syncing folders with rclone, keeping local copies of GitHub repositories, backing up Lightroom
+catalogs and wiping the traces Notepad++ leaves behind.
 
 ## Scripts
 
@@ -11,6 +11,7 @@ wiping the traces Notepad++ leaves behind.
 | `yt-video-downloader.ps1` | Downloads a video in the best available quality | [docs](docs/yt-video-downloader.md) |
 | `yt-sound-downloader.ps1` | Downloads only the audio track, mp3 by default | [docs](docs/yt-sound-downloader.md) |
 | `yt-channeldata-downloader.ps1` | Dumps every video of a channel as JSON metadata | [docs](docs/yt-channeldata-downloader.md) |
+| `video-upscale-8k.ps1` | Upscales a video to 8K in the highest quality, as H.265 or ProRes 422 HQ/LT | [docs](docs/video-upscale-8k.md) |
 | `rclone_sync.ps1` | Mirrors folder pairs listed in a text file | [docs](docs/rclone_sync.md) |
 | `github-repos-sync.ps1` | Clones or updates every repository of a GitHub account | [docs](docs/github-repos-sync.md) |
 | `lightroom-catalog-backup.ps1` | Zips a Lightroom Classic catalog, keeping the newest N | [docs](docs/lightroom-catalog-backup.md) |
@@ -55,6 +56,9 @@ Create `my-windows-utilities\software-yt-dlp` and place in it:
 |---|---|
 | `yt-dlp.exe` | https://github.com/yt-dlp/yt-dlp/releases |
 | `ffmpeg.exe`, `ffprobe.exe`, `ffplay.exe` | https://www.gyan.dev/ffmpeg/builds/ (essentials build) |
+
+`video-upscale-8k.ps1` uses the same `ffmpeg.exe` and `ffprobe.exe`; the essentials build already
+includes the x265, NVENC and ProRes encoders it needs.
 
 ### software-rclone
 
