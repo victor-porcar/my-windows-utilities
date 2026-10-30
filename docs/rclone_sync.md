@@ -89,6 +89,19 @@ folders by hand once**, or every pair will be skipped.
 A pair is skipped as well when the source does not exist, which protects against the worst case
 of all: an empty source mirrored onto a full destination.
 
+## Free space
+
+Before asking for confirmation, the script lists every local drive the valid pairs touch, with
+its volume label, free space, total size and percentage free. A drive under 10% free is shown in
+red. Network paths (`\\server\share`) have no drive letter and are not listed.
+
+```
+💾 FREE SPACE
+
+C:\ [OS]  126.7 GB free of 458.5 GB (28%)
+T:\ [BACKUP_DRIVE]  542.6 GB free of 1,907.7 GB (28%)
+```
+
 ## After each pair
 
 When rclone exits cleanly, a `control_sync.txt` with the timestamp is written in the destination.

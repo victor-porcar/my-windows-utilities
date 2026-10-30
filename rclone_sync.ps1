@@ -149,13 +149,10 @@ ForEach-Object {
     $volumeMap[$_.FileSystemLabel.ToUpper()] = "$($_.DriveLetter):\"
 }
 
-$volumeUsage = @{}
-
 function Resolve-SyncPath {
     param(
         [string]$path,
-        [hashtable]$volumeMap,
-        [ref]$volumeUsage
+        [hashtable]$volumeMap
     )
 
     $path = $path.Trim()
@@ -189,11 +186,7 @@ function Resolve-SyncPath {
             throw "VOLUME NOT FOUND: $volumeName"
         }
 
-        $resolved = $volumeMap[$volumeName] + $restPath.TrimStart("\")
-
-        $volumeUsage.Value[$volumeName] = $volumeMap[$volumeName]
-
-        return $resolved
+        return $volumeMap[$volumeName] + $restPath.TrimStart("\")
     }
 
     return $path
@@ -218,8 +211,8 @@ foreach ($line in $rawJobs) {
     }
 
     try {
-        $source = Resolve-SyncPath $parts[0] $volumeMap ([ref]$volumeUsage)
-        $dest   = Resolve-SyncPath $parts[1] $volumeMap ([ref]$volumeUsage)
+        $source = Resolve-SyncPath $parts[0] $volumeMap
+        $dest   = Resolve-SyncPath $parts[1] $volumeMap
 
         if (-not (Test-Path -LiteralPath $source)) {
             Write-Host "❌ SKIP SOURCE NOT FOUND: $source" -ForegroundColor Red
@@ -255,6 +248,47 @@ Write-Host "✅ JOBS: $($jobs.Count)`n" -ForegroundColor Green
 
 foreach ($job in $jobs) {
     Write-Host "➡️ $($job.Source) → $($job.Destination)"
+}
+
+# =========================================================
+# FREE SPACE
+# Every local drive the jobs touch, so a destination about to fill up is seen before confirming.
+# Network paths (\\server\share) have no drive letter and are left out.
+# =========================================================
+$labelByRoot = @{}
+
+foreach ($label in $volumeMap.Keys) {
+    $labelByRoot[$volumeMap[$label]] = $label
+}
+
+$roots = @($jobs | ForEach-Object { $_.Source; $_.Destination } |
+    ForEach-Object { [System.IO.Path]::GetPathRoot($_).ToUpper() } |
+    Where-Object { $_ -match '^[A-Z]:\\$' } |
+    Sort-Object -Unique)
+
+if ($roots.Count -gt 0) {
+
+    Write-Host "`n💾 FREE SPACE`n" -ForegroundColor Yellow
+
+    foreach ($root in $roots) {
+
+        $drive = [System.IO.DriveInfo]::new($root)
+
+        if (-not $drive.IsReady) {
+            Write-Host "⚠️ $root NOT READY" -ForegroundColor Yellow
+            continue
+        }
+
+        $label   = if ($labelByRoot.ContainsKey($root)) { " [$($labelByRoot[$root])]" } else { "" }
+        $freeGB  = $drive.AvailableFreeSpace / 1GB
+        $totalGB = $drive.TotalSize / 1GB
+        $percent = if ($totalGB -gt 0) { 100 * $freeGB / $totalGB } else { 0 }
+
+        # Under 10% free is worth a second look before mirroring onto it
+        $color = if ($percent -lt 10) { "Red" } else { "Gray" }
+
+        Write-Host ("{0}{1}  {2:N1} GB free of {3:N1} GB ({4:N0}%)" -f $root, $label, $freeGB, $totalGB, $percent) -ForegroundColor $color
+    }
 }
 
 # =========================================================
