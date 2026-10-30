@@ -104,9 +104,15 @@ T:\ [BACKUP_DRIVE]  542.6 GB free of 1,907.7 GB (28%)
 
 ## Space check
 
-Right after that, every pair is run once as a dry run to learn exactly which files would be
-copied and their size. The totals are added up per destination drive and compared with its free
-space:
+Right after that, the script asks:
+
+```
+Check whether the sync fits in the destination drives? (y/n)
+```
+
+Anything but `y` skips the check and goes straight to the usual confirmation. With `y`, every pair
+is run once as a dry run to learn exactly which files would be copied and their size. The totals
+are added up per destination drive and compared with its free space:
 
 ```
 📦 SPACE CHECK
@@ -134,7 +140,8 @@ modified file counts with its full new size. If the space for a pair cannot be c
 fails, the destination is a network path, the drive is not ready) a yellow warning says so and the
 script continues.
 
-Scanning both sides takes time on big folders, and the sync itself scans them again afterwards.
+Scanning both sides takes time on big folders and network drives, and the sync itself scans them
+again afterwards. That is why it is optional: answer `n` when you know there is room to spare.
 
 ## After each pair
 

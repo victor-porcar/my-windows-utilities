@@ -16,8 +16,9 @@
     keeps an unplugged drive from being recreated in the wrong place. The remaining ones are
     listed for confirmation before anything runs.
 
-    Before confirming, a dry run of every pair works out how much would be copied to each
-    destination drive. If any of them does not have enough free space, the script stops.
+    Before confirming, it asks whether to check that the sync fits. If so, a dry run of every
+    pair works out how much would be copied to each destination drive, and if any of them does
+    not have enough free space, the script stops.
 
     Beware that rclone sync mirrors: whatever is in the destination but not in the source is
     deleted. Use -DryRun first when in doubt.
@@ -319,125 +320,132 @@ function Format-Size {
     return "{0:N1} KB" -f ($bytes / 1KB)
 }
 
-# Logging flags from the args file would clash with the JSON log read here: rclone refuses -v
-# together with --log-level, and --log-file would take the output away
-$analysisParams = @()
-$skipValue      = $false
+# Working out what each pair would copy means listing both sides in full, which is slow on big
+# folders and network drives, so it is only done on request
+$checkSpace = (Read-Host "`nCheck whether the sync fits in the destination drives? (y/n)") -eq "y"
 
-foreach ($param in $rcloneParams) {
+if ($checkSpace) {
 
-    if ($skipValue) {
-        $skipValue = $false
-        continue
-    }
+    # Logging flags from the args file would clash with the JSON log read here: rclone refuses -v
+    # together with --log-level, and --log-file would take the output away
+    $analysisParams = @()
+    $skipValue      = $false
 
-    if ($param -match '^(--log-level|--log-file|--stats)$') {
-        $skipValue = $true
-        continue
-    }
+    foreach ($param in $rcloneParams) {
 
-    if ($param -match '^(-v+|-q|--verbose|--quiet|-P|--progress|--use-json-log|--dry-run|--(log-level|log-file|stats|verbose)=.*)$') {
-        continue
-    }
-
-    $analysisParams += $param
-}
-
-$analysisParams += "--dry-run", "--use-json-log", "--log-level", "NOTICE", "--stats", "0"
-
-Write-Host "`n📦 SPACE CHECK`n" -ForegroundColor Yellow
-
-$neededByRoot = @{}
-$spaceKnown   = $true
-
-for ($i = 0; $i -lt $jobs.Count; $i++) {
-
-    $job = $jobs[$i]
-
-    Write-Host "🔎 ($($i + 1)/$($jobs.Count)) $($job.Source) → $($job.Destination)" -ForegroundColor DarkGray
-
-    $copyBytes = [long]0
-    $output    = & $rclonePath sync $job.Source $job.Destination @analysisParams 2>&1
-    $exitCode  = $LASTEXITCODE
-
-    foreach ($line in $output) {
-
-        $text = "$line"
-
-        if (-not $text.StartsWith("{")) {
+        if ($skipValue) {
+            $skipValue = $false
             continue
         }
 
-        try {
-            $entry = $text | ConvertFrom-Json
-        }
-        catch {
+        if ($param -match '^(--log-level|--log-file|--stats)$') {
+            $skipValue = $true
             continue
         }
 
-        if ($entry.skipped -eq "copy" -and $entry.size -gt 0) {
-            $copyBytes += [long]$entry.size
+        if ($param -match '^(-v+|-q|--verbose|--quiet|-P|--progress|--use-json-log|--dry-run|--(log-level|log-file|stats|verbose)=.*)$') {
+            continue
+        }
+
+        $analysisParams += $param
+    }
+
+    $analysisParams += "--dry-run", "--use-json-log", "--log-level", "NOTICE", "--stats", "0"
+
+    Write-Host "`n📦 SPACE CHECK`n" -ForegroundColor Yellow
+
+    $neededByRoot = @{}
+    $spaceKnown   = $true
+
+    for ($i = 0; $i -lt $jobs.Count; $i++) {
+
+        $job = $jobs[$i]
+
+        Write-Host "🔎 ($($i + 1)/$($jobs.Count)) $($job.Source) → $($job.Destination)" -ForegroundColor DarkGray
+
+        $copyBytes = [long]0
+        $output    = & $rclonePath sync $job.Source $job.Destination @analysisParams 2>&1
+        $exitCode  = $LASTEXITCODE
+
+        foreach ($line in $output) {
+
+            $text = "$line"
+
+            if (-not $text.StartsWith("{")) {
+                continue
+            }
+
+            try {
+                $entry = $text | ConvertFrom-Json
+            }
+            catch {
+                continue
+            }
+
+            if ($entry.skipped -eq "copy" -and $entry.size -gt 0) {
+                $copyBytes += [long]$entry.size
+            }
+        }
+
+        if ($exitCode -ne 0) {
+            Write-Host "⚠️ COULD NOT CALCULATE THE SPACE NEEDED FOR $($job.Destination)" -ForegroundColor Yellow
+            $spaceKnown = $false
+            continue
+        }
+
+        $root = [System.IO.Path]::GetPathRoot($job.Destination).ToUpper()
+
+        if ($root -notmatch '^[A-Z]:\\$') {
+            Write-Host "⚠️ FREE SPACE CANNOT BE CHECKED ON $root ($(Format-Size $copyBytes) to copy)" -ForegroundColor Yellow
+            $spaceKnown = $false
+            continue
+        }
+
+        $neededByRoot[$root] += $copyBytes
+    }
+
+    Write-Host ""
+
+    $notEnoughSpace = $false
+
+    foreach ($root in ($neededByRoot.Keys | Sort-Object)) {
+
+        $drive = [System.IO.DriveInfo]::new($root)
+        $label = if ($labelByRoot.ContainsKey($root)) { " [$($labelByRoot[$root])]" } else { "" }
+
+        if (-not $drive.IsReady) {
+            Write-Host "⚠️ $root$label NOT READY" -ForegroundColor Yellow
+            $spaceKnown = $false
+            continue
+        }
+
+        $needed = $neededByRoot[$root]
+        $free   = $drive.AvailableFreeSpace
+
+        if ($needed -gt $free) {
+            Write-Host "❌ $root$label  $(Format-Size $needed) to copy, only $(Format-Size $free) free (missing $(Format-Size ($needed - $free)))" -ForegroundColor Red
+            $notEnoughSpace = $true
+        }
+        else {
+            Write-Host "✅ $root$label  $(Format-Size $needed) to copy, $(Format-Size $free) free" -ForegroundColor Green
         }
     }
 
-    if ($exitCode -ne 0) {
-        Write-Host "⚠️ COULD NOT CALCULATE THE SPACE NEEDED FOR $($job.Destination)" -ForegroundColor Yellow
-        $spaceKnown = $false
-        continue
+    if ($notEnoughSpace) {
+
+        Write-Host "`n⛔ NOT ENOUGH SPACE - THE SYNC CANNOT BE DONE" -ForegroundColor Red
+
+        # A dry run changes nothing, so it can still go on and show what would be copied
+        if (-not $DryRun) {
+            exit 1
+        }
     }
-
-    $root = [System.IO.Path]::GetPathRoot($job.Destination).ToUpper()
-
-    if ($root -notmatch '^[A-Z]:\\$') {
-        Write-Host "⚠️ FREE SPACE CANNOT BE CHECKED ON $root ($(Format-Size $copyBytes) to copy)" -ForegroundColor Yellow
-        $spaceKnown = $false
-        continue
-    }
-
-    $neededByRoot[$root] += $copyBytes
-}
-
-Write-Host ""
-
-$notEnoughSpace = $false
-
-foreach ($root in ($neededByRoot.Keys | Sort-Object)) {
-
-    $drive = [System.IO.DriveInfo]::new($root)
-    $label = if ($labelByRoot.ContainsKey($root)) { " [$($labelByRoot[$root])]" } else { "" }
-
-    if (-not $drive.IsReady) {
-        Write-Host "⚠️ $root$label NOT READY" -ForegroundColor Yellow
-        $spaceKnown = $false
-        continue
-    }
-
-    $needed = $neededByRoot[$root]
-    $free   = $drive.AvailableFreeSpace
-
-    if ($needed -gt $free) {
-        Write-Host "❌ $root$label  $(Format-Size $needed) to copy, only $(Format-Size $free) free (missing $(Format-Size ($needed - $free)))" -ForegroundColor Red
-        $notEnoughSpace = $true
+    elseif ($spaceKnown) {
+        Write-Host "`n✅ ENOUGH SPACE - THE SYNC CAN BE DONE" -ForegroundColor Green
     }
     else {
-        Write-Host "✅ $root$label  $(Format-Size $needed) to copy, $(Format-Size $free) free" -ForegroundColor Green
+        Write-Host "`n⚠️ SPACE COULD ONLY BE CHECKED PARTIALLY" -ForegroundColor Yellow
     }
-}
-
-if ($notEnoughSpace) {
-
-    Write-Host "`n⛔ NOT ENOUGH SPACE - THE SYNC CANNOT BE DONE" -ForegroundColor Red
-
-    # A dry run changes nothing, so it can still go on and show what would be copied
-    if (-not $DryRun) {
-        exit 1
-    }
-}
-elseif ($spaceKnown) {
-    Write-Host "`n✅ ENOUGH SPACE - THE SYNC CAN BE DONE" -ForegroundColor Green
-}
-else {
-    Write-Host "`n⚠️ SPACE COULD ONLY BE CHECKED PARTIALLY" -ForegroundColor Yellow
 }
 
 # A dry run changes nothing, so there is nothing to confirm
