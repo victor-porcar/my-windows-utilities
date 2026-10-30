@@ -102,6 +102,40 @@ C:\ [OS]  126.7 GB free of 458.5 GB (28%)
 T:\ [BACKUP_DRIVE]  542.6 GB free of 1,907.7 GB (28%)
 ```
 
+## Space check
+
+Right after that, every pair is run once as a dry run to learn exactly which files would be
+copied and their size. The totals are added up per destination drive and compared with its free
+space:
+
+```
+📦 SPACE CHECK
+
+✅ T:\ [BACKUP_DRIVE]  12.3 GB to copy, 542.6 GB free
+
+✅ ENOUGH SPACE - THE SYNC CAN BE DONE
+```
+
+If any drive falls short, it is shown in red with how much is missing, and the script **stops
+without asking**, exiting with code 1:
+
+```
+❌ T:\ [BACKUP_DRIVE]  600.0 GB to copy, only 542.6 GB free (missing 57.4 GB)
+
+⛔ NOT ENOUGH SPACE - THE SYNC CANNOT BE DONE
+```
+
+With `-DryRun` the same message is shown, but the run goes on, since it changes nothing and its
+listing helps to see what is taking the space.
+
+The check is deliberately conservative: what the sync will delete is **not** subtracted, because
+rclone deletes only after all the copies of a pair are done, so the copies have to fit first. A
+modified file counts with its full new size. If the space for a pair cannot be calculated (rclone
+fails, the destination is a network path, the drive is not ready) a yellow warning says so and the
+script continues.
+
+Scanning both sides takes time on big folders, and the sync itself scans them again afterwards.
+
 ## After each pair
 
 When rclone exits cleanly, a `control_sync.txt` with the timestamp is written in the destination.
